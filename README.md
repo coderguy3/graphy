@@ -1,2 +1,2 @@
 # graphy
- tool that graphs cpu usage with a graph
+ linux python tool that graphs cpu usage
