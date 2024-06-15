@@ -1,6 +1,5 @@
-# utils.py
-
 import sys
+import psutil
 
 def clear_terminal():
     """Clears the terminal screen."""
@@ -13,5 +12,12 @@ def handle_error(message):
 
 def handle_exit():
     """Handles program exit gracefully."""
-    print("\nExiting...")
+    print("Exiting program...")
     sys.exit(0)
+
+def get_cpu_cores():
+    """Returns the number of CPU cores as an integer."""
+    try:
+        return psutil.cpu_count(logical=True)
+    except Exception as e:
+        handle_error(f"Failed to get CPU core count: {e}")
