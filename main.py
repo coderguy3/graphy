@@ -6,7 +6,7 @@ import sys
 import threading
 from config import DEFAULT_LEN, DEFAULT_INTERVAL_MS
 from cpu_monitor import draw
-from utils import handle_error, handle_exit, get_cpu_cores
+from utils import handle_error, handle_exit
 
 class CpuMonitor:
     def __init__(self, interval_ms):
@@ -26,11 +26,8 @@ class CpuMonitor:
         self.running = False
         self.thread.join()
 
-def main(len_points, interval_ms):
+def graph_thread(cpu_monitor, len_points, interval_ms):
     history = []
-    cpu_monitor = CpuMonitor(interval_ms)
-    cpu_monitor.start()
-
     try:
         while True:
             draw(cpu_monitor.cpu_percent, history, len_points)
@@ -39,8 +36,24 @@ def main(len_points, interval_ms):
         handle_exit()
     except Exception as e:
         handle_error(f"An unexpected error occurred: {e}")
+
+def main(len_points, interval_ms):
+    cpu_monitor = CpuMonitor(interval_ms)
+    cpu_monitor.start()
+    
+    graph_thread_obj = threading.Thread(target=graph_thread, args=(cpu_monitor, len_points, interval_ms))
+    graph_thread_obj.start()
+
+    try:
+        while True:
+            time.sleep(1)  # Main thread doing other work, if needed
+    except KeyboardInterrupt:
+        handle_exit()
+    except Exception as e:
+        handle_error(f"An unexpected error occurred: {e}")
     finally:
         cpu_monitor.stop()
+        graph_thread_obj.join()
 
 def introduction():
     os.system('clear')
@@ -64,7 +77,6 @@ def parse_arguments():
     parser.add_argument("--len", type=int, default=DEFAULT_LEN, help="Number of data points to show horizontally (default: %(default)s)")
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_MS, help="Update interval in milliseconds (default: %(default)s)")
     return parser.parse_args()
-
 
 if __name__ == "__main__":
     try:

@@ -4,13 +4,8 @@ import os
 from config import DEFAULT_LEN, HEIGHT
 from utils import clear_terminal, handle_error
 
-graph_up = {
-    0.0 : " ", 0.1 : "⢀", 0.2 : "⢠", 0.3 : "⢰", 0.4 : "⢸",
-    1.0 : "⡀", 1.1 : "⣀", 1.2 : "⣠", 1.3 : "⣰", 1.4 : "⣸",
-    2.0 : "⡄", 2.1 : "⣄", 2.2 : "⣤", 2.3 : "⣴", 2.4 : "⣼",
-    3.0 : "⡆", 3.1 : "⣆", 3.2 : "⣦", 3.3 : "⣶", 3.4 : "⣾",
-    4.0 : "⡇", 4.1 : "⣇", 4.2 : "⣧", 4.3 : "⣷", 4.4 : "⣿"
-}
+GRAPH_HEIGHT = 10
+graph_symbol = "█"
 
 def check_terminal_size():
     """Checks if the terminal size is sufficient to display the graph."""
@@ -18,9 +13,16 @@ def check_terminal_size():
         rows, columns = os.popen('stty size', 'r').read().split()
         rows = int(rows)
         columns = int(columns)
-        return rows >= HEIGHT + 4 and columns >= DEFAULT_LEN + 4
+        return rows >= GRAPH_HEIGHT + 4 and columns >= DEFAULT_LEN + 4
     except Exception as e:
         handle_error(f"Failed to check terminal size: {e}")
+
+def get_cpu_cores():
+    """Returns the number of CPU cores as an integer."""
+    try:
+        return psutil.cpu_count(logical=True)
+    except Exception as e:
+        handle_error(f"Failed to get CPU core count: {e}")
 
 def draw(cpu_percent, history, len_points):
     """Draws the CPU usage graph."""
@@ -33,22 +35,20 @@ def draw(cpu_percent, history, len_points):
     if len(history) > len_points:
         history.pop(0)
 
-    # Scale CPU usage to fit within the available height
-    scaled_history = [int(min(HEIGHT, max(1, val // 4))) for val in history]  # Ensure at least 1 dot for any positive value
+    # Scale CPU usage to fit within the new graph height
+    scaled_history = [int(min(GRAPH_HEIGHT, max(1, val // 10))) for val in history]
 
-    # Prepare the graph lines
     lines = []
-    for h in range(HEIGHT):
+    for h in range(GRAPH_HEIGHT):
         line = ""
         for i in range(len(history)):
-            val = scaled_history[i] - (HEIGHT - h - 1)
-            if val in graph_up:
-                line += graph_up[val]
+            val = scaled_history[i] - (GRAPH_HEIGHT - h - 1)
+            if val > 0:
+                line += graph_symbol
             else:
                 line += " "
         lines.append(line)
 
-    # Clear screen and draw border
     clear_terminal()
     print(f"CPU usage: Overall {cpu_percent:.1f}% ({time.strftime('%Y-%m-%d %H:%M:%S')})")
     print("┌" + "─" * len_points + "┐")  # Top border
@@ -58,4 +58,16 @@ def draw(cpu_percent, history, len_points):
         print("│" + line + "│")
 
     print("└" + "─" * len_points + "┘")  # Bottom border
-    print("(each symbol represents 4% CPU usage)")
+    print(f"CPU Cores: {get_cpu_cores()}") 
+
+def main(len_points, interval_ms):
+    history = []
+    while True:
+        try:
+            cpu_percent = psutil.cpu_percent(interval=1)
+            draw(cpu_percent, history, len_points)
+            time.sleep(interval_ms / 1000.0 - 1)  # Adjust for interval after the 1-second cpu_percent call
+        except KeyboardInterrupt:
+            handle_exit()
+        except Exception as e:
+            handle_error(f"An unexpected error occurred: {e}")
